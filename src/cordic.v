@@ -1,3 +1,7 @@
+//Cordic algorith to calculate sine and cosine
+
+
+
 module CORDIC(clock, cosine, sine, x_start, y_start, angle);
 
   parameter width = 20;
