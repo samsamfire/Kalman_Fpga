@@ -1,5 +1,6 @@
 //Created by Samuel Lee
-
+// 32-bit signed fixed point multiplier with overflow
+//Q is fraction length and N is integer length
 
 module qmult#(//Parameterized values
   parameter Q = 18,
