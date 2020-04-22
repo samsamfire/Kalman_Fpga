@@ -1,8 +1,6 @@
 `include "D:/Programs/Quartus/quartus/eda/sim_lib/220model.v"
-`include "./src/sequential_matrix.v"
-`include "./src/parallel_matrix.v"
-`include "./src/qmult.v"
-`include "./src/qadd.v"
+`include "../src/matrix_multiplication.v"
+`include "../src/fixedpoint_multiplier.v"
 
 
 `timescale 1ps / 1ps
