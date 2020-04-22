@@ -1,8 +1,8 @@
 `include "D:/Programs/Quartus/quartus/eda/sim_lib/220model.v"
-`include "sequential_matrix.v"
-`include "parallel_matrix.v"
-`include "qmult.v"
-`include "qadd.v"
+`include "./src/sequential_matrix.v"
+`include "./src/parallel_matrix.v"
+`include "./src/qmult.v"
+`include "./src/qadd.v"
 
 
 `timescale 1ps / 1ps
