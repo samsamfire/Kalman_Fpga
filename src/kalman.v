@@ -1,4 +1,4 @@
-// Code your design here
+//Fixed point 32-bit kalman filter Q = 18 & N = 32
 module kalman #(
   parameter N=32,
   parameter Q=18
