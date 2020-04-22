@@ -1,4 +1,4 @@
-
+//Created by Samuel Lee
 
 
 //Fixed Point 32-bit PID
@@ -12,7 +12,8 @@ module combinational_pid  #(
 ( 
  	input signed [N-1:0] data_in,
  	input reset,clk,
- 	output signed [N-1:0] data_out
+ 	output signed [N-1:0] data_out,
+ 	output of
 );
 
 //Variable declarations 
@@ -22,7 +23,7 @@ reg signed [N-1:0] prev_in, prev_KIout;
 
 wire signed [N-1:0] out_adderKP,out_adderKI;
 wire signed [2*N-1:0] out_gainKP, out_gainKI;
-wire of_Kp,of_Ki;
+wire of_Kp,of_Ki; //overflows
 
 //Module instanciations,
 //Probably possible to do better because parameters are constants ?
@@ -52,21 +53,25 @@ assign data_out = out_gainKP[N-1+Q:Q] + out_adderKI;
 
 //TODO : Overflow control ? and also implement saturations
 
+assign of = of_Kp || of_Ki;
 
 endmodule
-	
-
-module sequential_pid #(parameter Kp = 32'b00000000000011_000000000000000000, parameter Ki = 32'b00000000000000_000000000001000010) (data_in,data_out,clk,reset);
-
-parameter N=32;
-parameter Q = 18;
 
 
-//Inputs
-input signed [N-1:0] data_in; 
-input clk,reset;
 
-output signed [N-1:0] data_out;
+
+
+module sequential_pid #(
+	parameter [31:0] Kp = 1,
+	parameter [31:0] Ki = 0,
+	parameter N=32,
+	parameter Q = 18)
+( 
+ 	input signed [N-1:0] data_in,
+ 	input reset,clk,
+ 	output signed [N-1:0] data_out,
+ 	output of
+);
 
 
 parameter s0 = 3'b000;
