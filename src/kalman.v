@@ -40,9 +40,8 @@ parameter signed [N-1:0] numerator = 2**31-1;
 /////////////////////////////////////////////////////////////Matrixes declaration/////////////////////////////////////////////////////////////
 
 //4x4 matrixes
-reg signed [4*4*N-1:0] Pk_prev, Pk_mult_result, P_matrix; 
-wire signed [4*4*N-1:0] Pk;
-wire signed [4*4*N-1:0] I_KC,Pk_C_transpose,matrix_invert;
+reg signed [4*4*N-1:0] Pk_prev, Pk_mult_result, P_matrix , temp_matrix; 
+wire signed [4*4*N-1:0] I_KC,Pk_C_transpose,matrix_invert,Pk,F,F_transpose,I,result_Matrix;
 //Q matrix (only diagonal coefficients matter)
 parameter signed [N-1:0] Q00 = 0.01*sf;
 parameter signed [N-1:0] Q11=0.01*sf;
@@ -54,6 +53,20 @@ parameter signed [N-1:0] R00 = 0.92*sf;
 parameter signed [N-1:0] R01 = 0;
 parameter signed [N-1:0] R10 = 0;
 parameter signed [N-1:0] R11 = 0.92*sf;
+
+//Jacobian Matrix coefficients
+wire signed [N-1:0] F0[0:3],F1[0:3],F2[0:3],F3[0:3]; //Line 1 to 4
+
+//P Matrix coefficients
+wire signed [N-1:0] P0[0:3],P1[0:3],P2[0:3],P3[0:3]; //Line 1 to 4
+
+//K matrix coefficients
+wire signed [N-1:0] K00,K01,K10,K11,K20,K21,K30,K31;				
+
+//Intermediate variables
+wire signed [N-1:0] Q_intermediate0,Q_intermediate1,Q_intermediate2,Q_intermediate3;
+wire signed [N-1:0] R_intermediate0,R_intermediate1,R_intermediate2,R_intermediate3;
+wire signed [N-1:0] R0[0:1],R1[0:1];
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -67,50 +80,36 @@ reg [width-1:0] Xin,Yin;
  
 ////////////////////////////////////////////////////////State vectors//////////////////////////////////////////////////////////////////////////////
   
-wire signed [N-1:0] xe[0:3],x_intermediate1[0:3],x_intermediate2[0:3]; //Xe is a 4x1 vector containing ialpha,ibeta,omega,theta
-
+wire signed [N-1:0] xe[0:3],x_intermediate1[0:3],x_intermediate2[0:3],x[0:3]; //Xe is a 4x1 vector containing ialpha,ibeta,omega,theta
 wire signed [N-1:0] xe_intermediate[0:1];
 
-
-wire signed [N-1:0] x[0:3];
-wire signed [N-1:0] error_i[0:1];
-reg signed [N-1:0] yk[0:1];
-reg signed [N-1:0] xe_prev[0:3];
-reg signed [N-1:0] omegae,thetae;
+wire signed [N-1:0] error_i[0:1]; //Current error between measured and estimated
+reg signed [N-1:0] yk[0:1],xe_prev[0:3];
+reg signed [N-1:0] omegae,thetae; //Omega estimated and Theta estimated
 
 
 
-  //Temporary variables
-  
-  
-  wire signed [N-1:0] mult_temp1,mult_temp2,mult_temp3,mult_temp4,mult_temp5,mult_temp6,mult_temp7,mult_temp8,dtheta;
-  wire signed [N-1:0] mult_temp10,mult_temp11;
-  
-  
-  //Jacobian Matrix
-  wire signed [N-1:0] F0[0:3]; //Line 1
-  wire signed [N-1:0] F1[0:3]; //Line 2
-  wire signed [N-1:0] F2[0:3]; //Line 3
-  wire signed [N-1:0] F3[0:3]; //Line 4
-  
-  //P Matrix
-  wire signed [N-1:0] P0[0:3];
-  wire signed [N-1:0] P1[0:3];
-  wire signed [N-1:0] P2[0:3];
-  wire signed [N-1:0] P3[0:3];
-  
+//Temporary variables
+
+
+wire signed [N-1:0] mult_temp1,mult_temp2,mult_temp3,mult_temp4,mult_temp5,mult_temp6,mult_temp7,mult_temp8,dtheta;
+wire signed [N-1:0] mult_temp10,mult_temp11;
+
+
+
+
 
   
 
   
   
-  /////////////////////STATE MACHINE VARS//////////////////
+  //////////////////////////////////////////////////////////STATE MACHINE VARS///////////////////////////////////////////////////////////
   
   reg [3:0] state;
   parameter [2:0] s0=3'b000;
   
-  parameter compute_P_0 = 3'b001;
-  parameter compute_P_1 = 3'b010;
+  parameter compute_F_x_Pk = 3'b001;
+  parameter compute_F_x_Pk_x_Ftranspose = 3'b010;
   parameter compute_K = 3'b011;
   
   parameter compute_P = 3'b100;
@@ -118,12 +117,12 @@ reg signed [N-1:0] omegae,thetae;
   parameter wait_state = 3'b110;
   
   
-  
+  reg [N-1:0] wait_counter;
   reg [4:0] compute_P_counter = 5'b0000; 
 
   
   
-  ////////////////////////////////MODULE INSTANCIATIONS //////////////////////////////////
+  ///////////////////////////////////////////////////////MODULE INSTANCIATIONS ////////////////////////////////////////////////////////////////////////////
   
   
   
@@ -131,25 +130,14 @@ reg signed [N-1:0] omegae,thetae;
   wire signed[N-1:0] det;
   wire signed [N-1:0] det_interm1,det_interm2;
   
-  wire signed [N-1:0] K00,K01,K10,K11,K20,K21,K30,K31;
+ 
   
-  wire signed [N-1:0] Q_intermediate0,Q_intermediate1,Q_intermediate2,Q_intermediate3;
-  wire signed [N-1:0] R_intermediate0,R_intermediate1,R_intermediate2,R_intermediate3;
-  wire signed [N-1:0] R0[0:1],R1[0:1];
-
-  reg signed [4*4*N-1:0] temp_matrix;
-  wire signed [4*4*N-1:0] result_Matrix;
-  wire signed [4*4*N-1:0] F,F_transpose;
-  wire signed [4*4*N-1:0] I;
-  
-  
-  wire signed [4*4*N-1:0] F_test;
   reg reset_smm;
   
   reg signed [4*4*N-1 : 0] matrix_inA,matrix_inB;
   
 
-  reg [N-1:0] wait_counter;
+  
 
 
   sequential_matrix_multiply #(N,Q,4) smm(matrix_inA,matrix_inB,result_Matrix,clk,reset_smm);
@@ -196,7 +184,7 @@ reg signed [N-1:0] omegae,thetae;
         s0: begin
 		  
 		
-        state <= compute_P_0;
+        state <= compute_F_x_Pk;
         //Get curents and stuff
         yk[0] <= ialpham;
         yk[1] <= ibetam;
@@ -208,7 +196,7 @@ reg signed [N-1:0] omegae,thetae;
           
         end
         //Computing Pk
-      	compute_P_0: begin   //First is F*Pk_prev
+      	compute_F_x_Pk: begin   //First is F*Pk_prev
       	  reset_smm <= 1;
           matrix_inA <= F;   
           matrix_inB <= Pk_prev; 
@@ -218,14 +206,14 @@ reg signed [N-1:0] omegae,thetae;
         	end
           else begin
             temp_matrix <= result_Matrix; //Result of F*Pk_prev has been processed, next step is to multiply by Ftranspose
-            state <= compute_P_1;
+            state <= compute_F_x_Pk_x_Ftranspose;
             compute_P_counter <=0;  //Reset counter and Multiply module
             reset_smm <=0;
             
         	end
         end
         
-        compute_P_1:begin 
+        compute_F_x_Pk_x_Ftranspose:begin 
           //Initially put prev_result and F_transpose into multiply module 
           if(compute_P_counter == 0) begin
           reset_smm <= 1;
@@ -464,10 +452,6 @@ reg signed [N-1:0] omegae,thetae;
                           {32'b0,32'b0,R1[1],R1[0]},
                           {32'b0,32'b0,R0[1],R0[0]}};
   
-  assign F_test = {{sf_5,32'b0,32'b0,32'b0},
-                   {32'b0,sf_5,32'b0,32'b0},
-                   {32'b0,32'b0,sf_5,32'b0},
-                   {32'b0,32'b0,32'b0,sf_5}};
   
   assign I = {{sf,32'b0,32'b0,32'b0},
                    {32'b0,sf,32'b0,32'b0},
