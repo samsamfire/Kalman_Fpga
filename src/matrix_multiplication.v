@@ -2,6 +2,39 @@
 
 
 
+//Parallel matrix multiplication
+
+module parallel_matrix_multiply(A,B,C,clk,reset);
+  
+  //Parallel
+  parameter N=32;
+  parameter P=4;
+  
+  
+  input signed [P*P*N-1:0] A;
+  input signed [P*P*N-1:0] B;
+  
+  output signed [P*P*N-1:0] C;
+  input clk,reset;
+  
+  genvar i,j;
+  generate
+    for(j=0;j<P;j=j+1) begin : gen1
+      for (i=0;i<P;i=i+1) begin : gen2
+        coefficient_calc #(32,18,4) coeff(A[(P*N*(i+1))-1:P*N*i],{B[N+3*P*N-1+j*N:3*P*N+j*N],B[N+2*P*N-1+j*N:2*P*N+j*N],B[N+P*N-1+j*N:P*N+j*N],B[N-1+j*N:j*N]},C[j*N*P+(i+1)*N-1:j*N*P+i*N],clk,reset);
+        
+      end
+       
+    end
+  endgenerate
+  
+  
+  
+  
+endmodule
+
+
+
 
 
 //Calculate coefficient of 32-bit 4x4 matrix
