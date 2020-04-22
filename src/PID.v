@@ -15,21 +15,19 @@ module combinational_pid  #(
  	output signed [N-1:0] data_out
 );
 
-
-
-
-
+//Variable declarations 
 reg signed [N-1:0] prev_value,output_value,temp_value;
-
-
-
-
-
 reg signed [N-1:0] prev_in, prev_KIout;
 
 
 wire signed [N-1:0] out_adderKP,out_adderKI;
 wire signed [2*N-1:0] out_gainKP, out_gainKI;
+wire of_Kp,of_Ki;
+
+//Module instanciations,
+//Probably possible to do better because parameters are constants ?
+qmult #(Q,N) mult0(data_in,Kp,out_gainKP,of_Kp);
+qmult #(Q,N) mult1(out_adderKP,Ki,out_gainKI,of_Ki);
 
 always @(posedge clk, negedge reset) begin
 
@@ -45,22 +43,14 @@ always @(posedge clk, negedge reset) begin
 		
 	end
 	
-	
-	
-	
-	//Should check for overflow
+
 assign out_adderKP = prev_in + data_in;
-
-assign out_gainKP = data_in * Kp;
-
-assign out_gainKI = out_adderKP * Ki;
-
 assign out_adderKI = out_gainKI[N-1+Q:Q] + prev_KIout;
 
 
-//Implement saturations
-
 assign data_out = out_gainKP[N-1+Q:Q] + out_adderKI;
+
+//TODO : Overflow control ? and also implement saturations
 
 
 endmodule
