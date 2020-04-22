@@ -3,72 +3,80 @@ module kalman #(
   parameter N=32,
   parameter Q=18
 )
-  (
-    input signed [N-1:0] valpha,vbeta,
-    input signed [N-1:0] ialpham,ibetam,
-    input signed [N-1:0] ctheta_t,stheta_t,
-    input signed [N-1:0] nbSamples,
-    input clk,reset,
-    output reg signed [N-1:0] omega,theta,
-    output reg signed [N-1:0] ialphak,ibetak,kmatrix00,kmatrix01,kmatrix10,kmatrix11,kmatrix20,kmatrix21,kmatrix30,kmatrix31
-  );
+(
+	input signed [N-1:0] valpha,vbeta,
+	input signed [N-1:0] ialpham,ibetam,
+	input signed [N-1:0] ctheta_t,stheta_t,
+	input signed [N-1:0] nbSamples,
+	input clk,reset,
+	output reg signed [N-1:0] omega,theta,
+	output reg signed [N-1:0] ialphak,ibetak,kmatrix00,kmatrix01,kmatrix10,kmatrix11,kmatrix20,kmatrix21,kmatrix30,kmatrix31
+);
 
   //Store inputs 
 
-  reg signed [N-1:0] valpha_i,vbeta_i;
-
-  
-  //Constant parameters declaration;
-  parameter signed [N-1:0] sf = 2**Q;
-  parameter signed [N-1:0] sf_5 = 5*2**Q;
-  parameter P = 4;
-  
-
-  ///////Machine Parameters/////////////////
-  parameter Rs = 1.477;
-  parameter Lambda = 0.2026;
-  parameter Ts = 0.00001;
-  parameter Ls = 0.0211;
-  parameter signed [N-1:0] Lambda_Ts_Ls = ((Lambda*Ts)/Ls)*sf;
-  parameter signed [N-1:0] Rs_Ts_Ls = ((Rs*Ts)/Ls)*sf;
-  parameter signed [N-1:0] F00 = sf - Rs_Ts_Ls;
-  parameter signed [N-1:0] Ts_Ls = (Ts/Ls)*sf;
-  parameter signed [N-1:0] T = Ts*sf;
-  parameter signed [N-1:0] numerator = 2**31-1;
+reg signed [N-1:0] valpha_i,vbeta_i;
 
 
+//Constant parameters declaration;
+parameter signed [N-1:0] sf = 2**Q;
+parameter signed [N-1:0] sf_5 = 5*2**Q;
+parameter P = 4;
+
+
+////////////////////////////////////////////////////////////////Machine Parameters//////////////////////////////////////////////////////////////
+parameter Rs = 1.477;
+parameter Lambda = 0.2026;
+parameter Ts = 0.00001;
+parameter Ls = 0.0211;
+parameter signed [N-1:0] Lambda_Ts_Ls = ((Lambda*Ts)/Ls)*sf;
+parameter signed [N-1:0] Rs_Ts_Ls = ((Rs*Ts)/Ls)*sf;
+parameter signed [N-1:0] F00 = sf - Rs_Ts_Ls;
+parameter signed [N-1:0] Ts_Ls = (Ts/Ls)*sf;
+parameter signed [N-1:0] T = Ts*sf;
+parameter signed [N-1:0] numerator = 2**31-1;
+
+
+/////////////////////////////////////////////////////////////Matrixes declaration/////////////////////////////////////////////////////////////
+
+//4x4 matrixes
+reg signed [4*4*N-1:0] Pk_prev, Pk_mult_result, P_matrix; 
+wire signed [4*4*N-1:0] Pk;
+wire signed [4*4*N-1:0] I_KC,Pk_C_transpose,matrix_invert;
+//Q matrix (only diagonal coefficients matter)
+parameter signed [N-1:0] Q00 = 0.01*sf;
+parameter signed [N-1:0] Q11=0.01*sf;
+parameter signed [N-1:0] Q22=20*sf;
+parameter signed [N-1:0] Q33=0.0001*sf;
+
+//R matrix 2x2 matrix
+parameter signed [N-1:0] R00 = 0.92*sf;
+parameter signed [N-1:0] R01 = 0;
+parameter signed [N-1:0] R10 = 0;
+parameter signed [N-1:0] R11 = 0.92*sf;
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 parameter width = 20;
- parameter signed [N-1:0] ratio_cos =2067.6;
- parameter An = (2**Q)/1.647;
- reg [width-1:0] Xin,Yin;
+parameter signed [N-1:0] ratio_cos =2067.6;
+parameter An = (2**Q)/1.647;
+reg [width-1:0] Xin,Yin;
 
-  //Q matrix
-  parameter signed [N-1:0] Q00 = 0.01*sf;
-  parameter signed [N-1:0] Q11=0.01*sf;
-  parameter signed [N-1:0] Q22=20*sf;
-  parameter signed [N-1:0] Q33=0.0001*sf;
+
+
+ 
+////////////////////////////////////////////////////////State vectors//////////////////////////////////////////////////////////////////////////////
   
-  //R matrix
-  
-  parameter signed [N-1:0] R00 = 0.92*sf;
-  parameter signed [N-1:0] R01 = 0;
-  parameter signed [N-1:0] R10 = 0;
-  parameter signed [N-1:0] R11 = 0.92*sf;
+wire signed [N-1:0] xe[0:3],x_intermediate1[0:3],x_intermediate2[0:3]; //Xe is a 4x1 vector containing ialpha,ibeta,omega,theta
 
-  //State variables
-  
-  
-  wire signed [N-1:0] xe[0:3]; //Xe is a 4x1 vector containing ialpha,ibeta,omega,theta
-
-  wire signed [N-1:0] xe_intermediate[0:1];
-  wire signed [N-1:0] x_intermediate1[0:3],x_intermediate2[0:3];
+wire signed [N-1:0] xe_intermediate[0:1];
 
 
-  wire signed [N-1:0] x[0:3];
-  wire signed [N-1:0] error_i[0:1];
-  reg signed [N-1:0] yk[0:1];
-  reg signed [N-1:0] xe_prev[0:3];
-  reg signed [N-1:0] omegae,thetae;
+wire signed [N-1:0] x[0:3];
+wire signed [N-1:0] error_i[0:1];
+reg signed [N-1:0] yk[0:1];
+reg signed [N-1:0] xe_prev[0:3];
+reg signed [N-1:0] omegae,thetae;
 
 
 
@@ -117,13 +125,9 @@ parameter width = 20;
   
   ////////////////////////////////MODULE INSTANCIATIONS //////////////////////////////////
   
-  reg signed [4*4*N-1:0] Pk_prev, Pk_mult_result;
-  wire signed [4*4*N-1:0] Pk;
-  wire signed [4*4*N-1:0] I_KC;
   
-  reg signed [4*4*N-1:0] P_matrix;
-  wire signed [4*4*N-1:0] Pk_C_transpose;
-  wire signed [4*4*N-1:0] matrix_invert;
+  
+  
   wire signed[N-1:0] det;
   wire signed [N-1:0] det_interm1,det_interm2;
   
