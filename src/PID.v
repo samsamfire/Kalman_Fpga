@@ -1,21 +1,23 @@
 
-//Descriptiuon
+
+
+//Fixed Point 32-bit PID
+//Parameters Kp & Ki are 32 bit constants and instanciated with the module
+
+module combinational_pid  #(
+	parameter [31:0] Kp = 1,
+	parameter [31:0] Ki = 0,
+	parameter N=32,
+	parameter Q = 18)
+( 
+ 	input signed [N-1:0] data_in,
+ 	input reset,clk,
+ 	output signed [N-1:0] data_out
+);
 
 
 
-module parallel_pid #(parameter Kp = 32'b00000000000011_000000000000000000, parameter Ki = 32'b00000000000000_000000000001000010) (data_in,data_out,clk,reset);
 
-parameter N=32;
-parameter Q = 18;
-
-
-//Inputs
-input signed [N-1:0] data_in; 
-input clk,reset;
-
-
-
-output signed [N-1:0] data_out;
 
 reg signed [N-1:0] prev_value,output_value,temp_value;
 
