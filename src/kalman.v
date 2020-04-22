@@ -41,7 +41,7 @@ parameter signed [N-1:0] numerator = 2**31-1;
 
 //4x4 matrixes
 reg signed [4*4*N-1:0] Pk_prev, Pk_mult_result, P_matrix , temp_matrix; 
-wire signed [4*4*N-1:0] I_KC,Pk_C_transpose,matrix_invert,Pk,F,F_transpose,I,result_Matrix;
+wire signed [4*4*N-1:0] I_KC,Pk_C_transpose,matrix_invert,Pk,F,F_transpose,I;
 //Q matrix (only diagonal coefficients matter)
 parameter signed [N-1:0] Q00 = 0.01*sf;
 parameter signed [N-1:0] Q11=0.01*sf;
@@ -69,11 +69,8 @@ wire signed [N-1:0] R_intermediate0,R_intermediate1,R_intermediate2,R_intermedia
 wire signed [N-1:0] R0[0:1],R1[0:1];
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-parameter width = 20;
-parameter signed [N-1:0] ratio_cos =2067.6;
-parameter An = (2**Q)/1.647;
-reg [width-1:0] Xin,Yin;
+////////////////////////////////////////////////////////////////MISC//////////////////////////////////////////////////////////////////////////////////
+
 
 
 
@@ -103,239 +100,242 @@ wire signed [N-1:0] mult_temp10,mult_temp11;
 
   
   
-  //////////////////////////////////////////////////////////STATE MACHINE VARS///////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////STATE MACHINE VARS///////////////////////////////////////////////////////////
   
-  reg [3:0] state;
-  parameter [2:0] s0=3'b000;
-  
-  parameter compute_F_x_Pk = 3'b001;
-  parameter compute_F_x_Pk_x_Ftranspose = 3'b010;
-  parameter compute_K = 3'b011;
-  
-  parameter compute_P = 3'b100;
-  parameter update_prev =3'b101;
-  parameter wait_state = 3'b110;
-  
-  
-  reg [N-1:0] wait_counter;
-  reg [4:0] compute_P_counter = 5'b0000; 
+reg [3:0] state;
+parameter [2:0] s0=3'b000;
+
+parameter compute_F_x_Pk = 3'b001;
+parameter compute_F_x_Pk_x_Ftranspose = 3'b010;
+parameter compute_K = 3'b011;
+
+parameter compute_P = 3'b100;
+parameter update_prev =3'b101;
+parameter wait_state = 3'b110;
+
+
+reg [N-1:0] wait_counter;
+reg [4:0] compute_P_counter = 5'b0000; 
 
   
+///////////////////////////////////////////////////////MODULE INSTANCIATIONS ////////////////////////////////////////////////////////////////////////////
   
-  ///////////////////////////////////////////////////////MODULE INSTANCIATIONS ////////////////////////////////////////////////////////////////////////////
-  
-  
-  
-  
-  wire signed[N-1:0] det;
-  wire signed [N-1:0] det_interm1,det_interm2;
-  
+////Matrix multiply module  
+reg reset_smm;
+reg signed [4*4*N-1 : 0] matrix_inA,matrix_inB;
+wire signed [4*4*N-1 : 0] result_Matrix;
+
  
-  
-  reg reset_smm;
-  
-  reg signed [4*4*N-1 : 0] matrix_inA,matrix_inB;
-  
-
-  
+sequential_matrix_multiply #(N,Q,4) smm(matrix_inA,matrix_inB,result_Matrix,clk,reset_smm);
 
 
-  sequential_matrix_multiply #(N,Q,4) smm(matrix_inA,matrix_inB,result_Matrix,clk,reset_smm);
-  
-  wire signed [2*N-1:0] div_intermediate;
-  wire signed [N-1:0] quotient,remain;
-  wire signed [N-1:0] inverse_det;
-  
-  div2 div0(det,numerator,quotient,remain);
+//Determinant calculation for C*Pk*C + R module
+wire signed [2*N-1:0] div_intermediate;
+wire signed [N-1:0] quotient,remain;
+wire signed [N-1:0] inverse_det;
+wire signed[N-1:0] det;
+wire signed [N-1:0] det_interm1,det_interm2;
 
-  wire of1,of2,of3,of4,of5,of6,of7,of8,of9,of10,of11,of12,of13,of14,of15,of16,of17,of18,of19,of20,of21,of22,of23,of24;
-  
-  
-  wire signed [N-1:0] ctheta,stheta;
+div2 det_calculate(det,numerator,quotient,remain);
 
-
-  CORDIC cordic0(.clock(clk),.cosine(ctheta),.sine(stheta),.x_start(Xin),.y_start(Yin),.angle(thetae * ratio_cos));
+//Overflow variables
+wire of1,of2,of3,of4,of5,of6,of7,of8,of9,of10,of11,of12,of13,of14,of15,of16,of17,of18,of19,of20,of21,of22,of23,of24;
 
 
-  ////////////////////////////////////////MAIN///////////////////////////////////
+wire signed [N-1:0] ctheta,stheta;
+
+
+//Cordic module for calculating sine and cosine
+parameter width = 20;
+parameter signed [N-1:0] ratio_cos =2067.6;
+parameter An = (2**Q)/1.647;
+reg [width-1:0] Xin,Yin;
+
+
+CORDIC cordic0(.clock(clk),.cosine(ctheta),.sine(stheta),.x_start(Xin),.y_start(Yin),.angle(thetae * ratio_cos));
+
+
+
+
+/////////////////////////////////////////////////////////////////////////MAIN///////////////////////////////////////////////////////////////////////////////////
   
-  always @(posedge clk, negedge reset) begin
+always @(posedge clk, negedge reset) begin
+
+if(!reset) begin
+
+  Xin <= An;
+  Yin <= 0;
+  omegae <= 0;
+  thetae <= 0;
+  xe_prev[0] <= 0;
+  xe_prev[1] <=0;
+  xe_prev[2] <= 0;
+  xe_prev[3] <=0;
+  wait_counter <=0;
+  ////P0 initialisation
+  Pk_prev <= {{1*sf,32'b0,32'b0,32'b0},{32'b0,10*sf,32'b0,32'b0},{32'b0,32'b0,5*sf,32'b0},{32'b0,32'b0,32'b0,5*sf}};
+  temp_matrix <= 0;
+  //reset_smm=1;
+  state <= s0;
+  reset_smm <=0;
+end
+else begin
+  case(state) 
+    s0: begin
+	  
+	
+    state <= compute_F_x_Pk;
+    //Get curents and stuff
+    yk[0] <= ialpham;
+    yk[1] <= ibetam;
+    valpha_i <= valpha;
+    vbeta_i <= vbeta;
+
+
+   
+      
+    end
+    //Computing Pk
+  	compute_F_x_Pk: begin   //First is F*Pk_prev
+  	  reset_smm <= 1;
+      matrix_inA <= F;   
+      matrix_inB <= Pk_prev; 
+      
+      if(compute_P_counter < 18) begin  //Wait 18 clock cycles before getting result
+      	compute_P_counter <= compute_P_counter + 1;
+    	end
+      else begin
+        temp_matrix <= result_Matrix; //Result of F*Pk_prev has been processed, next step is to multiply by Ftranspose
+        state <= compute_F_x_Pk_x_Ftranspose;
+        compute_P_counter <=0;  //Reset counter and Multiply module
+        reset_smm <=0;
+        
+    	end
+    end
     
-    if(!reset) begin
+    compute_F_x_Pk_x_Ftranspose:begin 
+      //Initially put prev_result and F_transpose into multiply module 
+      if(compute_P_counter == 0) begin
+      reset_smm <= 1;
+      matrix_inA <= temp_matrix;
+      matrix_inB <= F_transpose;
+      end
+      
+      if(compute_P_counter < 18) begin
+        compute_P_counter <= compute_P_counter + 1;
+    	end
+      else begin
+        
+        state <= compute_K;
+        compute_P_counter <=0;   //Pk has been calculated
+        Pk_mult_result <= result_Matrix; // put matrix result inside Pk_mult_result;
+        reset_smm <=0;
+        
+        
+       
+      end
+     
+    end
+    //Second step is to compute K (kalman gain)
+    compute_K: begin
+       
+      reset_smm <= 1;
+      //Pk is ready
+      matrix_inA <= Pk_C_transpose; //This is a wire so doesnt change because Pk doesnt change
+      matrix_inB <= matrix_invert; //This is also a wire so won't change during this part of execution
+      
+      if(compute_P_counter < 18) begin
+        compute_P_counter <= compute_P_counter + 1;
+    	end
+      else begin
+        //K is almost totally computed. we still need to divide by determinant of matrix inverse
+        temp_matrix <= result_Matrix;
+        state <= compute_P;
+        compute_P_counter <=0;
+        reset_smm <=0;
+        //$display("P00",,$itor(P0[0])/sf,,"K00",$itor(K00)/sf ,, $itor(R_intermediate1)/sf);
+     
+        
+      end
+      
+    end
+///////////////Compute P = (I-K*C)*Pk       
+    compute_P: begin
+      reset_smm <= 1;
+      
+      matrix_inA <= I_KC;
+      matrix_inB <= Pk;
+      if(compute_P_counter < 18) begin
+        compute_P_counter <= compute_P_counter + 1;
+    	end
+      else begin
+        //P is computed will be the next Pk_prev
+        P_matrix <= result_Matrix;
+        state <= update_prev;
+        compute_P_counter <=0;
+        reset_smm <=0;
+      end
+    end
+    
+    
+    
+    update_prev: begin
+      
+      Pk_prev <= P_matrix;
+      xe_prev[0] <= x[0];
+      xe_prev[1] <= x[1];
+      xe_prev[2] <= x[2];
+      xe_prev[3] <= x[3];
+      
+      
+    omegae <= x[2];
+    thetae <= x[3];
+		 
+	omega <= x[2];
+	theta <= x[3];
 
-      Xin <= An;
-      Yin <= 0;
-      omegae <= 0;
-      thetae <= 0;
-      xe_prev[0] <= 0;
-      xe_prev[1] <=0;
-      xe_prev[2] <= 0;
-      xe_prev[3] <=0;
-      wait_counter <=0;
-      ////P0 initialisation
-      Pk_prev <= {{1*sf,32'b0,32'b0,32'b0},{32'b0,10*sf,32'b0,32'b0},{32'b0,32'b0,5*sf,32'b0},{32'b0,32'b0,32'b0,5*sf}};
-      temp_matrix <= 0;
-      //reset_smm=1;
-      state <= s0;
-      reset_smm <=0;
+	ialphak <= xe[0];
+	ibetak <= xe[1];
+
+	kmatrix00 <= K00;
+	kmatrix01 <= K01;
+	kmatrix10 <= K10;
+	kmatrix11 <= K11;
+	kmatrix20 <= K20;
+	kmatrix21 <= K21;
+	kmatrix30 <= K30;
+	kmatrix31 <= K31;
+
+	// kmatrix00 <= P0[0];
+	// kmatrix01 <= P0[1];
+	// kmatrix10 <= P1[0];
+	// kmatrix11 <= P1[1];
+	// kmatrix20 <= P2[0];
+	// kmatrix21 <= P2[1];
+	// kmatrix30 <= P3[0];
+	// kmatrix31 <= P3[1];
+
+
+	state <=wait_state;
+	end
+
+	wait_state: begin
+	  //Waiting for a new value
+    if(wait_counter<= nbSamples) begin
+      wait_counter <= wait_counter + 1;
+	      //state <= wait_state;
     end
     else begin
-      case(state) 
-        s0: begin
-		  
-		
-        state <= compute_F_x_Pk;
-        //Get curents and stuff
-        yk[0] <= ialpham;
-        yk[1] <= ibetam;
-        valpha_i <= valpha;
-        vbeta_i <= vbeta;
-
-
-       
-          
-        end
-        //Computing Pk
-      	compute_F_x_Pk: begin   //First is F*Pk_prev
-      	  reset_smm <= 1;
-          matrix_inA <= F;   
-          matrix_inB <= Pk_prev; 
-          
-          if(compute_P_counter < 18) begin  //Wait 18 clock cycles before getting result
-          	compute_P_counter <= compute_P_counter + 1;
-        	end
-          else begin
-            temp_matrix <= result_Matrix; //Result of F*Pk_prev has been processed, next step is to multiply by Ftranspose
-            state <= compute_F_x_Pk_x_Ftranspose;
-            compute_P_counter <=0;  //Reset counter and Multiply module
-            reset_smm <=0;
-            
-        	end
-        end
-        
-        compute_F_x_Pk_x_Ftranspose:begin 
-          //Initially put prev_result and F_transpose into multiply module 
-          if(compute_P_counter == 0) begin
-          reset_smm <= 1;
-          matrix_inA <= temp_matrix;
-          matrix_inB <= F_transpose;
-          end
-          
-          if(compute_P_counter < 18) begin
-            compute_P_counter <= compute_P_counter + 1;
-        	end
-          else begin
-            
-            state <= compute_K;
-            compute_P_counter <=0;   //Pk has been calculated
-            Pk_mult_result <= result_Matrix; // put matrix result inside Pk_mult_result;
-            reset_smm <=0;
-            
-            
-           
-          end
-         
-        end
-        //Second step is to compute K (kalman gain)
-        compute_K: begin
-           
-          reset_smm <= 1;
-          //Pk is ready
-          matrix_inA <= Pk_C_transpose; //This is a wire so doesnt change because Pk doesnt change
-          matrix_inB <= matrix_invert; //This is also a wire so won't change during this part of execution
-          
-          if(compute_P_counter < 18) begin
-            compute_P_counter <= compute_P_counter + 1;
-        	end
-          else begin
-            //K is almost totally computed. we still need to divide by determinant of matrix inverse
-            temp_matrix <= result_Matrix;
-            state <= compute_P;
-            compute_P_counter <=0;
-            reset_smm <=0;
-            //$display("P00",,$itor(P0[0])/sf,,"K00",$itor(K00)/sf ,, $itor(R_intermediate1)/sf);
-         
-            
-          end
-          
-        end
-  ///////////////Compute P = (I-K*C)*Pk       
-        compute_P: begin
-          reset_smm <= 1;
-          
-          matrix_inA <= I_KC;
-          matrix_inB <= Pk;
-          if(compute_P_counter < 18) begin
-            compute_P_counter <= compute_P_counter + 1;
-        	end
-          else begin
-            //P is computed will be the next Pk_prev
-            P_matrix <= result_Matrix;
-            state <= update_prev;
-            compute_P_counter <=0;
-            reset_smm <=0;
-          end
-        end
-        
-        
-        
-        update_prev: begin
-          
-          Pk_prev <= P_matrix;
-          xe_prev[0] <= x[0];
-          xe_prev[1] <= x[1];
-          xe_prev[2] <= x[2];
-          xe_prev[3] <= x[3];
-          
-          
-        omegae <= x[2];
-        thetae <= x[3];
-			 
-		omega <= x[2];
-		theta <= x[3];
-
-		ialphak <= xe[0];
-		ibetak <= xe[1];
-
-		kmatrix00 <= K00;
-		kmatrix01 <= K01;
-		kmatrix10 <= K10;
-		kmatrix11 <= K11;
-		kmatrix20 <= K20;
-		kmatrix21 <= K21;
-		kmatrix30 <= K30;
-		kmatrix31 <= K31;
-
-		// kmatrix00 <= P0[0];
-		// kmatrix01 <= P0[1];
-		// kmatrix10 <= P1[0];
-		// kmatrix11 <= P1[1];
-		// kmatrix20 <= P2[0];
-		// kmatrix21 <= P2[1];
-		// kmatrix30 <= P3[0];
-		// kmatrix31 <= P3[1];
-
-
-		state <=wait_state;
-		end
-
-		wait_state: begin
-		  //Waiting for a new value
-        if(wait_counter<= nbSamples) begin
-          wait_counter <= wait_counter + 1;
-		      //state <= wait_state;
-        end
-        else begin
-          wait_counter <= 0;
-          state <= s0;
-        end
-
-        end
-        
-          
-    endcase 
+      wait_counter <= 0;
+      state <= s0;
     end
-  end
+
+    end
+    
+      
+endcase 
+end
+end
       
   
   
@@ -408,7 +408,7 @@ wire signed [N-1:0] mult_temp10,mult_temp11;
   assign F3[1] = 0;
   assign F3[2] = T;
   assign F3[3] = sf;
-  //Need To implement the following :
+  
   assign F = {F3[3],F3[2],F3[1],F3[0],F2[3],F2[2],F2[1],F2[0],F1[3],F1[2],F1[1],F1[0],F0[3],F0[2],F0[1],F0[0]};
   assign F_transpose = {F3[3],F2[3],F1[3],F0[3],F3[2],F2[2],F1[2],F0[2],F3[1],F2[1],F1[1],F0[1],F3[0],F2[0],F1[0],F0[0]};
   
