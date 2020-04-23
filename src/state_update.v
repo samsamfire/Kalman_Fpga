@@ -22,7 +22,7 @@ parameter signed [N-1:0] T = Ts*sf;
 parameter signed [N-1:0] numerator = 2**31-1;
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-wire signed [N-1:0] mult_temp0,mult_temp1,mult_temp2,mult_temp3,mult_temp4,mult_temp5;
+wire signed [N-1:0] mult_temp0,mult_temp1,mult_temp2,mult_temp3,mult_temp4,mult_temp5,mult_temp6,mult_temp7,mult_temp8;
 
 
 
@@ -56,7 +56,7 @@ assign omegae = omega;
 
 //thetae = theta + omega*Ts
 
-qmult #(Q,N) mult8 (omega,Ts,mult_temp8);
+qmult #(Q,N) mult8 (omega,T,mult_temp8);
 
 assign thetae = theta + mult_temp8;
 ///////////////////////////////////////////////////////////////////JACOBIAN MATRIX////////////////////////////////////////////////////////////////////
