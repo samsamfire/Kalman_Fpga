@@ -92,12 +92,6 @@ reg signed [N-1:0] omegae,thetae; //Omega estimated and Theta estimated
 wire signed [N-1:0] mult_temp1,mult_temp2,mult_temp3,mult_temp4,mult_temp5,mult_temp6,mult_temp7,mult_temp8,dtheta;
 wire signed [N-1:0] mult_temp10,mult_temp11;
 
-
-
-
-
-  
-
   
   
 //////////////////////////////////////////////////////////STATE MACHINE VARS///////////////////////////////////////////////////////////
