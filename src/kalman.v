@@ -78,7 +78,6 @@ wire signed [N-1:0] R0[0:1],R1[0:1];
 ////////////////////////////////////////////////////////State vectors//////////////////////////////////////////////////////////////////////////////
   
 wire signed [N-1:0] xe[0:3],x_intermediate1[0:3],x_intermediate2[0:3],x[0:3]; //Xe is a 4x1 vector containing ialpha,ibeta,omega,theta
-wire signed [N-1:0] xe_intermediate[0:1];
 
 wire signed [N-1:0] error_i[0:1]; //Current error between measured and estimated
 reg signed [N-1:0] yk[0:1],xe_prev[0:3];
