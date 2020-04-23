@@ -18,9 +18,8 @@ module qmult#(//Parameterized values
   );
   
   wire sign_a,sign_b;
-  reg signed [N-1:0] a_inv,b_inv;
+  wire signed [N-1:0] a_inv,b_inv;
   reg [2*N-1:0] temp_result;
-  reg signed [2*N-1:0] result;
   reg signed [2*N-1:0] result_absolute;
 
 
@@ -39,25 +38,14 @@ always @(a,b) begin
     multiplier_ina = a_inv;
     multiplier_inb = b;
     result_absolute = multiplier_out;
-    if(result_absolute[N-1+Q:Q] == 0) begin   //Check if result should be 0, (avoids rounding to smallest negative)
-      temp_result = 32'b0;
-    end
-    else begin
-      temp_result = - result_absolute;
-    end
+    temp_result = - result_absolute;
   end
   //If a is positive and b negative
   else if(!sign_a && sign_b) begin
     multiplier_ina = a;
     multiplier_inb = b_inv;
     result_absolute = multiplier_out;
-
-    if(result_absolute[N-1+Q:Q] == 0) begin
-      temp_result = 32'b0;
-    end
-    else begin
-      temp_result = - result_absolute;
-    end
+    temp_result = - result_absolute;
   end
   //If a and b are both negative
   else if(sign_a && sign_b) begin
@@ -83,11 +71,7 @@ always @(a,b) begin
 end
 
 
-always @(a,b) begin
-  
-  a_inv = -a;
-  b_inv = -b;
-end
+
   
 
 
@@ -96,6 +80,8 @@ end
 assign sign_a = a[N-1];
 assign sign_b = b[N-1];
 assign o_result = temp_result[N-1+Q:Q];
+assign a_inv = -a;
+assign b_inv = -b;
  
   
   
