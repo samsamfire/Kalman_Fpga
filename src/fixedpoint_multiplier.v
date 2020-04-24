@@ -26,7 +26,7 @@ module qmult#(//Parameterized values
   // //Using ALTERA-LPM module
 
   reg signed [N-1:0] multiplier_ina,multiplier_inb;
-  wire signed [N-1:0] multiplier_out;
+  wire signed [2*N-1:0] multiplier_out;
 
   mult mult0(multiplier_ina,multiplier_inb,multiplier_out);
   

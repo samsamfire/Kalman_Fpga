@@ -146,7 +146,7 @@ parameter An = (2**Q)/1.647;
 reg [width-1:0] Xin,Yin;
 
 
-CORDIC cordic0(.clock(clk),.cosine(ctheta),.sine(stheta),.x_start(Xin),.y_start(Yin),.angle(thetae * ratio_cos));
+CORDIC cordic0(.clock(clk),.cosine(ctheta),.sine(stheta),.x_start(Xin),.y_start(Yin),.angle(xe[3] * ratio_cos));
 
 ////State estimation module
 
