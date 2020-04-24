@@ -153,7 +153,7 @@ CORDIC cordic0(.clock(clk),.cosine(ctheta),.sine(stheta),.x_start(Xin),.y_start(
 
 state_update #(N,Q,Ts) state_estimate(
 	.ialpha(xe_prev[0]),.ibeta(xe_prev[1]),
-	.vbeta(vbeta),.valpha(valpha),
+	.vbeta(vbeta_i),.valpha(valpha_i),
 	.omega(xe_prev[2]),
 	.theta(xe_prev[3]),.ctheta(ctheta),.stheta(stheta),
 	.ialphae(xe[0]),.ibetae(xe[1]),.omegae(xe[2]),.thetae(xe[3]),
