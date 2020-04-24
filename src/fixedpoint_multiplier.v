@@ -13,81 +13,65 @@ module qmult#(//Parameterized values
   (
     input     [N-1:0] a,
     input     [N-1:0] b,
-  output      [N-1:0] o_result,
-  output  reg       ovr
+  output     [N-1:0] o_result,
+  output reg       ovr
   );
   
   wire sign_a,sign_b;
-  reg signed [N-1:0] a_inv,b_inv;
-  reg [2*N-1:0] temp_result;
-  reg signed [2*N-1:0] result;
-  reg signed [2*N-1:0] result_absolute;
+  wire signed [N-1:0] a_inv,b_inv;
+  wire signed [2*N-1:0] result_absolute;
+  wire signed [N-1:0] result_absolute_32bit;
+  reg signed [N-1:0] temp_result;
 
 
   // //Using ALTERA-LPM module
 
   reg signed [N-1:0] multiplier_ina,multiplier_inb;
-  wire signed [2*N-1:0] multiplier_out;
 
-  mult mult0(multiplier_ina,multiplier_inb,multiplier_out);
+  mult mult0(multiplier_ina,multiplier_inb,result_absolute);
   
   
 always @(a,b) begin
+
   //If a is negative and b positive
   if(sign_a && !sign_b) begin
 
-    multiplier_ina = a_inv;
-    multiplier_inb = b;
-    result_absolute = multiplier_out;
-    if(result_absolute[N-1+Q:Q] == 0) begin   //Check if result should be 0, (avoids rounding to smallest negative)
-      temp_result = 32'b0;
-    end
-    else begin
-      temp_result = - result_absolute;
-    end
+    multiplier_ina <= a_inv;
+    multiplier_inb <= b;
+    temp_result = - result_absolute_32bit;
+
   end
+
   //If a is positive and b negative
   else if(!sign_a && sign_b) begin
-    multiplier_ina = a;
-    multiplier_inb = b_inv;
-    result_absolute = multiplier_out;
+    multiplier_ina <= a;
+    multiplier_inb <= b_inv;
+    temp_result = - result_absolute_32bit;
 
-    if(result_absolute[N-1+Q:Q] == 0) begin
-      temp_result = 32'b0;
-    end
-    else begin
-      temp_result = - result_absolute;
-    end
   end
+
   //If a and b are both negative
   else if(sign_a && sign_b) begin
-    multiplier_ina = a_inv;
-    multiplier_inb = b_inv;
-    result_absolute = multiplier_out;
-    temp_result = result_absolute;
+    multiplier_ina <= a_inv;
+    multiplier_inb <= b_inv;
+    temp_result = result_absolute_32bit;
   end
+
   //If a and b are both positive
   else begin
-    multiplier_ina = a_inv;
-    multiplier_inb = b_inv;
-    result_absolute = multiplier_out;
-    temp_result = result_absolute;
+    multiplier_ina <= a;
+    multiplier_inb <= b;
+    temp_result = result_absolute_32bit;
   end
   
   //Check for overflow, overflow happens if the upper bits of result_absolute are non-zero
   
-  if(result_absolute[2*N-1:N-1+Q] != 0)
-     ovr = 1'b1;
-  else
-    ovr = 1'b0;
+   if(result_absolute[2*N-1:N-1+Q] != 0)
+      ovr = 1'b1;
+   else
+     ovr = 1'b0;
 end
 
-
-always @(a,b) begin
-  
-  a_inv = -a;
-  b_inv = -b;
-end
   
 
 
@@ -95,8 +79,10 @@ end
  
 assign sign_a = a[N-1];
 assign sign_b = b[N-1];
-assign o_result = temp_result[N-1+Q:Q];
- 
+assign a_inv = -a;
+assign b_inv = -b;
+assign result_absolute_32bit = result_absolute[N-1+Q:Q];
+assign o_result = temp_result;
   
   
   
