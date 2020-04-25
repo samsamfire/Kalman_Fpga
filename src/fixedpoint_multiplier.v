@@ -31,7 +31,7 @@ module qmult#(//Parameterized values
   mult multiplier(multiplier_ina,multiplier_inb,result_absolute);
   
   
-always @(*) begin
+always @(a,b) begin
 
   //If a is negative and b positive
   if(sign_a && !sign_b) begin
@@ -70,16 +70,40 @@ always @(*) begin
     temp_result = result_absolute_32bit;
   end
   
+  
+end
+
+  
+always @(result_absolute_32bit) begin
+//If a is negative and b positive
+  if(sign_a && !sign_b) begin
+    temp_result = - result_absolute_32bit;
+
+  end
+
+  //If a is positive and b negative
+  else if(!sign_a && sign_b) begin
+    temp_result = - result_absolute_32bit;
+
+  end
+
+  //If a and b are both negative
+  else if(sign_a && sign_b) begin
+    temp_result = result_absolute_32bit;
+  end
+
+  //If a and b are both positive
+  else begin
+    temp_result = result_absolute_32bit;
+  end
   //Check for overflow, overflow happens if the upper bits of result_absolute are non-zero
   
    // if(result_absolute[2*N-1:N-1+Q] != 0)
    //    ovr = 1'b1;
    // else
    //   ovr = 1'b0;
-end
-
   
-
+end
 
   
  
