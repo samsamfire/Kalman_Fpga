@@ -38,7 +38,6 @@ always @(a,b) begin
 
     multiplier_ina = a_inv;
     multiplier_inb = b;
-    temp_result = - result_absolute_32bit;
 
   end
 
@@ -46,7 +45,6 @@ always @(a,b) begin
   else if(!sign_a && sign_b) begin
     multiplier_ina = a;
     multiplier_inb = b_inv;
-    temp_result = - result_absolute_32bit;
 
   end
 
@@ -54,20 +52,17 @@ always @(a,b) begin
   else if(sign_a && sign_b) begin
     multiplier_ina = a_inv;
     multiplier_inb = b_inv;
-    temp_result = result_absolute_32bit;
   end
 
   //If a and b are both positive
   else if(!sign_a && !sign_b)begin
     multiplier_ina = a;
     multiplier_inb = b;
-    temp_result = result_absolute_32bit;
   end
 
   else begin
     multiplier_ina = a;
     multiplier_inb = b;
-    temp_result = result_absolute_32bit;
   end
   
   
@@ -98,10 +93,10 @@ always @(result_absolute_32bit) begin
   end
   //Check for overflow, overflow happens if the upper bits of result_absolute are non-zero
   
-   // if(result_absolute[2*N-1:N-1+Q] != 0)
-   //    ovr = 1'b1;
-   // else
-   //   ovr = 1'b0;
+  if(result_absolute[2*N-1:N-1+Q] != 0)
+       ovr = 1'b1;
+    else
+       ovr = 1'b0;
   
 end
 
