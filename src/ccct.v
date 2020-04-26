@@ -40,7 +40,11 @@ module parallel_clark #(parameter N=32, parameter Q=18)
 
 //Q17 format for parameters
 localparam [17:0] a = 0.5; // 0.5
+<<<<<<< HEAD
 localparam [17:0] b = 18'b011011101101100100; //sqrt3/2
+=======
+localparam [17:0] b = 18'b0110111011011001000; //sqrt3/2
+>>>>>>> origin/v2
 
 
 
