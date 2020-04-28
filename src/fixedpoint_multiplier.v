@@ -2,6 +2,10 @@
 // 32-bit signed fixed point multiplier with overflow
 //Q is fraction length and N is integer length
 
+
+//Normal LPM multiplier with 32-bit inputs and 64-bit output is 8 embedded 9-bit multipliers & 92 logic elements
+//This module for 32-bit fixed-point signed multiplication is 6 embedded 9-bit multiplliers & 207 logic elements
+
 module qmult#(//Parameterized values
   parameter Q = 18,
   parameter N = 32
@@ -9,68 +13,76 @@ module qmult#(//Parameterized values
   (
     input     [N-1:0] a,
     input     [N-1:0] b,
-  output      [N-1:0] o_result,
-  output  reg       ovr
+  output     [N-1:0] o_result,
+  output reg      ovr
   );
   
   wire sign_a,sign_b;
   wire signed [N-1:0] a_inv,b_inv;
-  reg [2*N-1:0] temp_result;
-  reg signed [2*N-1:0] result;
-  reg signed [2*N-1:0] result_absolute;
+  wire signed [2*N-1:0] result_absolute;
+  wire signed [N-1:0] result_absolute_32bit;
+  reg signed [N-1:0] temp_result;
+  wire [1:0] condition;
+
+
+  // //Using ALTERA-LPM module
+
+  reg signed [N-1:0] multiplier_ina,multiplier_inb;
+
+  mult multiplier(multiplier_ina,multiplier_inb,result_absolute);
   
   
-  always @(a,b) begin
-    //If a is negative and b positive
-    if(sign_a && !sign_b) begin
-      result_absolute = a_inv*b;
-      if(result_absolute[N-1+Q:Q] == 0) begin   //Check if result should be 0, (avoids rounding to smallest negative)
-        temp_result = 32'b0;
-      end
-      else begin
-        temp_result = - a_inv*b;
-      end
+always @(a or b) begin
+
+  case(condition) 
+
+    2'b10: begin //If a is negative and b positive
+
+      multiplier_ina = a_inv;
+      multiplier_inb = b;
+
     end
-    //If a is positive and b negative
-    else if(!sign_a && sign_b) begin
-      result_absolute = a*b_inv;
-      if(result_absolute[N-1+Q:Q] == 0) begin
-        temp_result = 32'b0;
-      end
-      else begin
-        temp_result = - a*b_inv;
-      end
+
+    2'b01: begin //If a is positive and b negative
+
+      multiplier_ina = a;
+      multiplier_inb = b_inv;
+
     end
-    //If a and b are both negative
-    else if(sign_a && sign_b) begin
-      result_absolute = a_inv*b_inv;
-      temp_result = a_inv*b_inv;
+
+    2'b11: begin //If a and b are both negative
+
+      multiplier_ina = a_inv;
+      multiplier_inb = b_inv;
+
     end
-    //If a and b are both positive
-    else if(!sign_a  &&  !sign_b)begin
-      result_absolute = a * b;
-      temp_result = a*b;
-    end
-    
-    //Check for overflow, overflow happens if the upper bits of result_absolute are non-zero
-    
-    if(result_absolute[2*N-1:N-1+Q] != 0)
-       ovr = 1'b1;
-    else
-      ovr = 1'b0;
-    
-    
-  end
+
+    2'b00: begin //If a and b are both positive
+
+      multiplier_ina = a;
+      multiplier_inb = b;
   
+    end
+
+  endcase
+
+  
+end
+
+
+
+
   
  
-  assign sign_a = a[N-1];
-  assign sign_b = b[N-1];
-  assign o_result = temp_result[N-1+Q:Q];
-  assign a_inv = -a;
-  assign b_inv = -b;
-  assign test = result_absolute[N-1+Q:Q];
-  
+assign sign_a = a[N-1];
+assign sign_b = b[N-1];
+assign a_inv = -a;
+assign b_inv = -b;
+assign result_absolute_32bit = result_absolute[N-1+Q:Q];
+
+assign condition = {sign_a,sign_b};
+
+assign o_result = sign_a ? (!sign_b ? -result_absolute_32bit : result_absolute_32bit) : (sign_b ? -result_absolute_32bit : result_absolute_32bit);
   
   
 endmodule

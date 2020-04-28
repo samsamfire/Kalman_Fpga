@@ -113,6 +113,7 @@ reg [4:0] compute_P_counter = 5'b0000;
 
   
 ///////////////////////////////////////////////////////MODULE INSTANCIATIONS ////////////////////////////////////////////////////////////////////////////
+
   
 ////Matrix multiply module  
 reg reset_smm;
@@ -123,7 +124,7 @@ wire signed [4*4*N-1 : 0] result_Matrix;
 sequential_matrix_multiply #(N,Q,4) smm(matrix_inA,matrix_inB,result_Matrix,clk,reset_smm);
 
 
-//Determinant calculation for C*Pk*C + R module
+/////Determinant calculation for C*Pk*C + R module
 wire signed [2*N-1:0] div_intermediate;
 wire signed [N-1:0] quotient,remain;
 wire signed [N-1:0] inverse_det;
@@ -132,14 +133,14 @@ wire signed [N-1:0] det_interm1,det_interm2;
 
 div2 det_calculate(det,numerator,quotient,remain);
 
-//Overflow variables
+//////Overflow variables
 wire of1,of2,of3,of4,of5,of6,of7,of8,of9,of10,of11,of12,of13,of14,of15,of16,of17,of18,of19,of20,of21,of22,of23,of24;
 
 
 wire signed [N-1:0] ctheta,stheta;
 
 
-//Cordic module for calculating sine and cosine
+///////Cordic module for calculating sine and cosine
 parameter width = 20;
 parameter signed [N-1:0] ratio_cos =2067.6;
 parameter An = (2**Q)/1.647;
@@ -147,6 +148,17 @@ reg [width-1:0] Xin,Yin;
 
 
 CORDIC cordic0(.clock(clk),.cosine(ctheta),.sine(stheta),.x_start(Xin),.y_start(Yin),.angle(thetae * ratio_cos));
+
+////State estimation module
+
+state_update #(N,Q,Ts) state_estimate(
+	.ialpha(xe_prev[0]),.ibeta(xe_prev[1]),
+	.vbeta(vbeta_i),.valpha(valpha_i),
+	.omega(xe_prev[2]),
+	.theta(xe_prev[3]),.ctheta(ctheta),.stheta(stheta),
+	.ialphae(xe[0]),.ibetae(xe[1]),.omegae(xe[2]),.thetae(xe[3]),
+	.F(F),.F_transpose(F_transpose)
+	);
 
 
 
@@ -331,81 +343,7 @@ endcase
 end
 end
       
-  
-  
-  //First step is to update new mean estimate
-  
-  //Update ialphae 
-  
-  qmult #(Q,N) mult0(Lambda_Ts_Ls,omegae,mult_temp1,of1);
-  qmult #(Q,N) mult1(Rs_Ts_Ls,xe_prev[0],mult_temp2,of2);
-  qmult #(Q,N) mult2(Rs_Ts_Ls,xe_prev[1],mult_temp3,of3);
-  
 
-  qmult #(Q,N) mult3(mult_temp1,stheta,mult_temp5,of4);
-  qmult #(Q,N) mult4(mult_temp1,ctheta,mult_temp6,of5);
-  qmult #(Q,N) mult5(valpha_i,Ts_Ls,mult_temp7,of6);
-  qmult #(Q,N) mult6(vbeta_i,Ts_Ls,mult_temp8,of7);
-
-  qmult #(Q,N) mult7(omegae,T,dtheta,of8);
-
-
-  //assign mult_temp1 = Lambda_Ts_Ls*omegae;
-  //assign mult_temp2 = Rs_Ts_Ls*xe_prev[0];
-  //assign mult_temp3 = Rs_Ts_Ls*xe_prev[1];
-
-
-
-  //assign mult_temp5 = mult_temp1[N-1+Q:Q] * stheta;
-  //assign mult_temp6 = mult_temp1[N-1+Q:Q] * ctheta;
-  //assign mult_temp7 = valpha*Ts_Ls;
-  //assign mult_temp8 = vbeta*Ts_Ls;
-  //assign dtheta = omegae*T;
-  
-  assign xe_intermediate[0] = mult_temp7 - mult_temp2 +  mult_temp5;
-  assign xe_intermediate[1] = mult_temp8 - mult_temp3 - mult_temp6;
-
-  
-  
-  assign xe[0] = xe_prev[0] + xe_intermediate[0];
-  assign xe[1] = xe_prev[1] + xe_intermediate[1];
-  assign xe[2] = xe_prev[2];
-  assign xe[3] = xe_prev[3] + dtheta;
-  
-  //Compute Jacobian matrix
-  
-  //assign mult_temp10 = Lambda_Ts_Ls*stheta;
-  //assign mult_temp11 = Lambda_Ts_Ls*ctheta;
-
-  qmult #(Q,N) mult8(Lambda_Ts_Ls,stheta,mult_temp10,of9);
-  qmult #(Q,N) mult9(Lambda_Ts_Ls,ctheta,mult_temp11,of10);
-  //Line 1
-  assign F0[0] = F00;
-  assign F0[1] = 0;
-  assign F0[2] = mult_temp10;
-  assign F0[3] = mult_temp6;
- 
-  //Line 2
-  assign F1[0] = 0;
-  assign F1[1] = F00;
-  assign F1[2] = -mult_temp11;
-  assign F1[3] = mult_temp5;
-  
-  //Line 3
-  assign F2[0] =0;
-  assign F2[1] = 0;
-  assign F2[2] = sf;
-  assign F2[3] = 0;
-  //Line 4
-  
-  assign F3[0] =0;
-  assign F3[1] = 0;
-  assign F3[2] = T;
-  assign F3[3] = sf;
-  
-  assign F = {F3[3],F3[2],F3[1],F3[0],F2[3],F2[2],F2[1],F2[0],F1[3],F1[2],F1[1],F1[0],F0[3],F0[2],F0[1],F0[0]};
-  assign F_transpose = {F3[3],F2[3],F1[3],F0[3],F3[2],F2[2],F1[2],F0[2],F3[1],F2[1],F1[1],F0[1],F3[0],F2[0],F1[0],F0[0]};
-  
   assign Q_intermediate0 = Pk_mult_result[N-1:0] + Q00;
   assign Q_intermediate1 = Pk_mult_result[N-1+5*N:5*N]+Q11;
   assign Q_intermediate2 = Pk_mult_result[N-1+10*N:10*N]+Q22;
@@ -478,18 +416,11 @@ end
   
   ////////////////////////////state calculation//////////////
   
-  //x[0] = xe[0] + K00*(ialpham-ialpha) + K01*(ibetam-ibeta)
-  
-  // assign yk[0] = ialpham;
-  // assign yk[1] = ibetam;
   
   assign error_i[0] = yk[0]-xe[0];
   assign error_i[1] = yk[1]-xe[1]; 
   
-  // assign x_intermediate[0] = K00*error_i[0]+K01*error_i[1];
-  // assign x_intermediate[1] = K10*error_i[0]+K11*error_i[1];
-  // assign x_intermediate[2] = K20*error_i[0]+K21*error_i[1];
-  // assign x_intermediate[3] = K30*error_i[0]+K31*error_i[1];
+
 
   qmult #(Q,N) mult14(K00,error_i[0],x_intermediate1[0],of15);
   qmult #(Q,N) mult15(K10,error_i[0],x_intermediate1[1],of16);

@@ -1,6 +1,7 @@
 `include "D:/Programs/Quartus/quartus/eda/sim_lib/220model.v"
 `include "../src/matrix_multiplication.v"
 `include "../src/fixedpoint_multiplier.v"
+`include "../src/mult.v"
 
 
 `timescale 1ps / 1ps
@@ -36,7 +37,7 @@ initial begin
 	#10 reset = 0;
 	#10 reset = 1;
 
-	A00 = -18;A01=0;A02 = 0;A03=0;
+	A00 = 0;A01=0;A02 = 0;A03=0;
 	A10 = 0;A11=0;A12 = 0;A13=0;
 	A20 = 0;A21=0;A22 = 0;A23=0;
 	A30 = 0;A31=0;A32 = 0;A33=0;
