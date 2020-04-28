@@ -6,9 +6,11 @@
 >> Counter will generate a 5kHz traingel wave for a 10ns clock period
 */
 
-module spwm #(parameter N, parameter Q, parameter signed [31:0] m = 32'b0001_0000_0000_0000_0000_0000_0000_0000)
+module spwm #(parameter N, parameter Q)
     (output reg Sau, output reg Sal, output reg Sbu, output reg Sbl, output reg Scu, output reg Scl, output signed [N-1:0] out,
     input signed [N-1:0] x, input signed [N-1:0] y, input signed [N-1:0] z, input clk, input res);
+
+    parameter signed [31:0] m = 2**Q;
     
     wire signed [N-1:0] count;
     wire of1,of2,of3;
